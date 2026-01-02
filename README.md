@@ -14,7 +14,7 @@ A Model Context Protocol (MCP) server for web application security scanning.
 
 ## Requirements
 
-- Go 1.21+
+- Go 1.25+
 - Nikto (`apt install nikto` or equivalent)
 - Wapiti (`apt install wapiti` or equivalent)
 - SQLite3
