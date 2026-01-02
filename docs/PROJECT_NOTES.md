@@ -40,6 +40,8 @@ wass-mcp/
 │   │   │   └── nikto.go # Nikto scanner tool
 │   │   ├── wapiti/
 │   │   │   └── wapiti.go # Wapiti scanner tool
+│   │   ├── fullscan/
+│   │   │   └── fullscan.go # Parallel full scan tool
 │   │   └── history/
 │   │       ├── history.go # History management tool
 │   │       └── history_test.go
@@ -114,6 +116,34 @@ Web application vulnerability scanner using Wapiti. Performs comprehensive secur
 - Summary of vulnerabilities by category
 - Detailed findings with proof-of-concept requests
 - cURL commands for manual verification
+
+### full_scan
+
+Comprehensive security scan using all available scanners in parallel. Merges results into a unified report.
+
+**Input:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `host` | string | Target hostname or IP |
+| `port` | int | Target port (default: 80) |
+| `vhost` | string | Virtual host header (optional) |
+| `max_lines` | int | Max output lines (pagination) |
+| `offset` | int | Line offset (pagination) |
+
+**Example:**
+```json
+{"host": "192.168.1.1", "port": 8080}
+```
+
+**Output:** Unified report containing:
+- Scan summary with timing for each scanner
+- Success/failure status per scanner
+- Merged results from all scanners (nikto, wapiti)
+
+**Features:**
+- Runs all available scanners in parallel
+- Gracefully handles missing scanner binaries
+- Continues if at least one scanner is available
 
 ### history
 

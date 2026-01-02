@@ -20,6 +20,7 @@ import (
 	"github.com/tb0hdan/wass-mcp/pkg/server"
 	"github.com/tb0hdan/wass-mcp/pkg/storage"
 	"github.com/tb0hdan/wass-mcp/pkg/tools"
+	"github.com/tb0hdan/wass-mcp/pkg/tools/fullscan"
 	"github.com/tb0hdan/wass-mcp/pkg/tools/history"
 	"github.com/tb0hdan/wass-mcp/pkg/tools/nikto"
 	"github.com/tb0hdan/wass-mcp/pkg/tools/wapiti"
@@ -80,10 +81,22 @@ func main() {
 	logger.Info().Msgf("Database initialized at %s", dbPath)
 
 	srv := server.NewServer(impl, store)
-	toolList := []tools.Tool{
+
+	// Create scanner instances.
+	scanners := []tools.Scanner{
 		nikto.New(logger),
 		wapiti.New(logger),
+	}
+
+	// Create tool instances.
+	toolList := []tools.Tool{
+		fullscan.New(logger, scanners...),
 		history.New(logger),
+	}
+
+	// Add individual scanners as tools
+	for _, scanner := range scanners {
+		toolList = append(toolList, scanner)
 	}
 
 	// Register all tools

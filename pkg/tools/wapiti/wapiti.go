@@ -17,116 +17,170 @@ import (
 	"github.com/tb0hdan/wass-mcp/pkg/types"
 )
 
+const (
+	binaryName  = "wapiti"
+	defaultHost = "localhost"
+	defaultPort = 80
+)
+
+// Input defines the MCP tool input parameters.
 type Input struct {
-	Vhost    string `json:"vhost,omitempty"` // Virtual host to target
+	Vhost    string `json:"vhost,omitempty"`
 	Host     string `json:"host,omitempty" validate:"omitempty,hostname|ip"`
 	Port     int    `json:"port,omitempty" validate:"min=0,max=65535"`
 	MaxLines int    `json:"max_lines,omitempty" validate:"min=0,max=100000"`
 	Offset   int    `json:"offset,omitempty" validate:"min=0"`
 }
 
+// Tool implements the wapiti scanner.
 type Tool struct {
 	logger    zerolog.Logger
 	validator *validator.Validate
 }
 
-func (p *Tool) Register(srv *server.Server) error {
-	// Check if wapiti binary exists
-	wapitiPath, err := exec.LookPath("wapiti")
-	if err != nil {
-		return fmt.Errorf("wapiti binary not found: %w", err)
-	}
-	p.logger.Debug().Msgf("wapiti binary found at %s", wapitiPath)
-
-	tool := &mcp.Tool{
-		Name:        "wapiti",
-		Description: "Wapiti is a web application vulnerability scanner.",
-	}
-
-	// Wrap handler with execution logging
-	wrappedHandler := tools.WrapToolHandler(
-		srv.Storage(),
-		"wapiti",
-		p.WapitiHandler,
-	)
-
-	mcp.AddTool(&srv.Server, tool, wrappedHandler)
-	p.logger.Debug().Msg("wapiti tool registered")
-
-	return nil
+// Name returns the scanner name.
+func (t *Tool) Name() string {
+	return binaryName
 }
 
-func (p *Tool) WapitiHandler(ctx context.Context, _ *mcp.CallToolRequest, input Input) (*mcp.CallToolResult, any, error) {
-	// Validate input using validator.
-	if err := p.validator.Struct(input); err != nil {
-		return nil, nil, fmt.Errorf("validation error: %w", err)
+// IsAvailable checks if the wapiti binary is available.
+func (t *Tool) IsAvailable() bool {
+	_, err := exec.LookPath(binaryName)
+	return err == nil
+}
+
+// Scan performs the wapiti scan and returns the output.
+func (t *Tool) Scan(ctx context.Context, params tools.ScanParams) tools.ScanResult {
+	host := params.Host
+	if host == "" {
+		host = defaultHost
 	}
 
-	host := "localhost"
-	if input.Host != "" {
-		host = input.Host
-	}
-
-	port := 80
-	if input.Port != 0 {
-		port = input.Port
+	port := params.Port
+	if port == 0 {
+		port = defaultPort
 	}
 
 	targetURL := "http://" + net.JoinHostPort(host, strconv.Itoa(port))
-
-	// Determine max lines for pagination.
-	maxLines := types.MaxDefaultLines
-	if input.MaxLines > 0 {
-		maxLines = input.MaxLines
-	}
+	t.logger.Info().Msgf("Running wapiti scan on %s", targetURL)
 
 	// Create temp file for report output.
 	tempFile, err := os.CreateTemp("", "wapiti-report-*.txt")
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create temp file: %w", err)
+		return tools.ScanResult{
+			Error: fmt.Errorf("failed to create temp file: %w", err),
+		}
 	}
 	reportPath := tempFile.Name()
-	_ = tempFile.Close() // Close so wapiti can write to it.
+	_ = tempFile.Close()
 	defer func() {
-		if err := os.Remove(reportPath); err != nil {
-			p.logger.Warn().Err(err).Msg("Failed to clean up temp file")
-		}
+		_ = os.Remove(reportPath)
 	}()
 
-	// Execute wapiti scan.
-	p.logger.Info().Msgf("Running wapiti scan on %s", targetURL)
 	args := []string{"-u", targetURL, "-f", "txt", "-o", reportPath, "--flush-session"}
-	if input.Vhost != "" {
-		args = append(args, "-H", fmt.Sprintf("Host: %s", input.Vhost))
+	if params.Vhost != "" {
+		args = append(args, "-H", fmt.Sprintf("Host: %s", params.Vhost))
 	}
-	cmd := exec.CommandContext(ctx, "wapiti", args...) //nolint:gosec
 
+	cmd := exec.CommandContext(ctx, binaryName, args...) //nolint:gosec
 	cmdOutput, err := cmd.CombinedOutput()
+
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to execute wapiti: %w\nOutput: %s", err, string(cmdOutput))
+		return tools.ScanResult{
+			Output: string(cmdOutput),
+			Error:  fmt.Errorf("failed to execute wapiti: %w", err),
+		}
 	}
 
 	// Read the generated report file.
-	reportData, err := os.ReadFile(reportPath) //nolint:gosec // Path is from controlled temp file
-	var reportContent string
+	reportData, err := os.ReadFile(reportPath) //nolint:gosec
 	if err != nil {
-		// Fall back to command output if report not found.
-		p.logger.Warn().Err(err).Msg("Failed to read report file, using command output")
-		reportContent = string(cmdOutput)
-	} else {
-		reportContent = string(reportData)
+		t.logger.Warn().Err(err).Msg("Failed to read report file, using command output")
+		return tools.ScanResult{
+			Output: string(cmdOutput),
+			Error:  nil,
+		}
+	}
+
+	return tools.ScanResult{
+		Output: string(reportData),
+		Error:  nil,
+	}
+}
+
+// Register registers the wapiti tool with the MCP server.
+func (t *Tool) Register(srv *server.Server) error {
+	if !t.IsAvailable() {
+		return fmt.Errorf("%s binary not found", binaryName)
+	}
+
+	t.logger.Debug().Msgf("%s binary found", binaryName)
+
+	tool := &mcp.Tool{
+		Name:        binaryName,
+		Description: "Wapiti is a web application vulnerability scanner.",
+	}
+
+	wrappedHandler := tools.WrapToolHandler(
+		srv.Storage(),
+		binaryName,
+		t.WapitiHandler,
+	)
+
+	mcp.AddTool(&srv.Server, tool, wrappedHandler)
+	t.logger.Debug().Msg("wapiti tool registered")
+
+	return nil
+}
+
+// WapitiHandler handles MCP tool requests.
+func (t *Tool) WapitiHandler(ctx context.Context, _ *mcp.CallToolRequest, input Input) (*mcp.CallToolResult, any, error) {
+	if err := t.validator.Struct(input); err != nil {
+		return nil, nil, fmt.Errorf("validation error: %w", err)
+	}
+
+	host := defaultHost
+	if input.Host != "" {
+		host = input.Host
+	}
+
+	port := defaultPort
+	if input.Port != 0 {
+		port = input.Port
+	}
+
+	// Perform the scan using the reusable Scan method.
+	params := tools.ScanParams{
+		Host:  host,
+		Port:  port,
+		Vhost: input.Vhost,
+	}
+
+	scanResult := t.Scan(ctx, params)
+	if scanResult.Error != nil {
+		return nil, nil, fmt.Errorf("%w\nOutput: %s", scanResult.Error, scanResult.Output)
 	}
 
 	// Apply pagination.
-	lines := strings.Split(reportContent, "\n")
-	totalLines := len(lines)
+	targetURL := "http://" + net.JoinHostPort(host, strconv.Itoa(port))
+	resultText := t.formatOutput(targetURL, scanResult.Output, input.MaxLines, input.Offset)
 
-	offset := 0
-	if input.Offset > 0 {
-		offset = input.Offset
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: resultText},
+		},
+	}, nil, nil
+}
+
+// formatOutput applies pagination and formats the output.
+func (t *Tool) formatOutput(targetURL, output string, maxLines, offset int) string {
+	if maxLines == 0 {
+		maxLines = types.MaxDefaultLines
 	}
 
-	// Apply offset if needed.
+	lines := strings.Split(output, "\n")
+	totalLines := len(lines)
+
 	truncated := false
 	if offset > 0 && offset < totalLines {
 		end := totalLines
@@ -148,22 +202,13 @@ func (p *Tool) WapitiHandler(ctx context.Context, _ *mcp.CallToolRequest, input 
 	}
 	resultText += "\n" + strings.TrimSpace(paginatedOutput)
 
-	result := &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{
-				Text: resultText,
-			},
-		},
-	}
-
-	return result, nil, nil
+	return resultText
 }
 
-func New(logger zerolog.Logger) tools.Tool {
-	validate := validator.New()
-
+// New creates a new wapiti scanner tool.
+func New(logger zerolog.Logger) tools.Scanner {
 	return &Tool{
-		logger:    logger.With().Str("tool", "wapiti").Logger(),
-		validator: validate,
+		logger:    logger.With().Str("tool", binaryName).Logger(),
+		validator: validator.New(),
 	}
 }

@@ -133,6 +133,35 @@ Perform comprehensive web application vulnerability scans using Wapiti.
 }
 ```
 
+### full_scan
+
+Perform a comprehensive security scan using all available scanners in parallel.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `host` | string | Yes | Target hostname or IP address |
+| `port` | integer | No | Target port (default: 80) |
+| `vhost` | string | No | Virtual host header |
+| `max_lines` | integer | No | Maximum output lines |
+| `offset` | integer | No | Output line offset |
+
+**Features:**
+- Runs nikto and wapiti scanners in parallel
+- Merges results into a unified report
+- Includes timing and status for each scanner
+- Gracefully handles missing scanner binaries
+
+**Example:**
+
+```json
+{
+  "host": "192.168.1.100",
+  "port": 8080
+}
+```
+
 ### history
 
 Browse and manage tool execution history.
@@ -193,6 +222,7 @@ wass-mcp/
 │   ├── tools/           # MCP tool implementations
 │   │   ├── nikto/       # Nikto web server scanner
 │   │   ├── wapiti/      # Wapiti web app scanner
+│   │   ├── fullscan/    # Parallel full scan
 │   │   └── history/     # History management
 │   └── types/           # Shared types and constants
 ├── docs/                # Documentation
