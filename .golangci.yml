@@ -1,0 +1,41 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - asasalint
+    - bidichk
+    - asciicheck
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - decorder
+    - dogsled
+    - dupl
+    - dupword
+    - errname
+    - errorlint
+    - fatcontext
+    - forcetypeassert
+    - funcorder
+    - gocyclo
+    - godot
+    - godox
+    - gosec
+    - intrange
+    - loggercheck
+    - mnd
+    - nilerr
+    - nilnil
+    - noctx
+    - reassign
+    - testifylint
+    - unconvert
+    - unparam
+    - varnamelen
+    - wastedassign
+
+run:
+  concurrency: 4
+  timeout: 5m
+  tests: false

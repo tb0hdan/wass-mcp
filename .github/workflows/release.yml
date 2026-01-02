@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for commit messages
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24'
+
+    - name: Install golangci-lint
+      run: |
+        make tools
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+    - name: Run linting
+      run: make lint
+
+    - name: Build for Linux AMD64
+      run: |
+        GOOS=linux GOARCH=amd64 go build -o build/wass-mcp-linux-amd64 ./cmd/wass-mcp/*.go
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        echo "## Release Notes" > release_notes.md
+        echo "" >> release_notes.md
+        echo "### Recent Changes" >> release_notes.md
+        git log --oneline -10 --pretty=format:"- %s" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### Binary" >> release_notes.md
+        echo "- Linux AMD64: \`wass-mcp-linux-amd64\`" >> release_notes.md
+
+        # Set output for use in release
+        {
+          echo "notes<<EOF"
+          cat release_notes.md
+          echo "EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}
+        release_name: Release ${{ github.ref_name }}
+        body: ${{ steps.release_notes.outputs.notes }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/wass-mcp-linux-amd64
+        asset_name: wass-mcp-linux-amd64
+        asset_content_type: application/octet-stream
