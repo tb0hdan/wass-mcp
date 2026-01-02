@@ -28,3 +28,18 @@ test: build-dir
 	@echo "Running tests with coverage..."
 	@go test -v -race -coverprofile=build/coverage.out ./...
 	@go tool cover -html=build/coverage.out -o build/coverage.html
+
+docker-build:
+	@echo "Building Docker image..."
+	@docker build -t tb0hdan/wass-mcp -f deployments/Dockerfile .
+
+docker-run:
+	@echo "Running Docker container..."
+	@docker run -p 8989:8989 -v wass-data:/data tb0hdan/wass-mcp --bind 0.0.0.0:8989 --db /data/wass-mcp.db --debug
+
+docker-tag: docker-build
+	@echo "Tagging Docker image..."
+	@docker tag tb0hdan/wass-mcp tb0hdan/wass-mcp:$(VERSION)
+	@docker tag tb0hdan/wass-mcp tb0hdan/wass-mcp:latest
+	@docker push tb0hdan/wass-mcp:$(VERSION)
+	@docker push tb0hdan/wass-mcp:latest

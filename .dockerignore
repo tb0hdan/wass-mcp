@@ -1,0 +1,25 @@
+# Build artifacts
+build/
+*.db
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Documentation (not needed in image)
+docs/
+*.md
+LICENSE
+
+# Docker
+deployments/Dockerfile
+.dockerignore
+
+# Test files
+*_test.go
