@@ -40,6 +40,8 @@ wass-mcp/
 │   │   │   └── nikto.go # Nikto scanner tool
 │   │   ├── wapiti/
 │   │   │   └── wapiti.go # Wapiti scanner tool
+│   │   ├── nuclei/
+│   │   │   └── nuclei.go # Nuclei scanner tool
 │   │   ├── fullscan/
 │   │   │   └── fullscan.go # Parallel full scan tool
 │   │   └── history/
@@ -117,6 +119,30 @@ Web application vulnerability scanner using Wapiti. Performs comprehensive secur
 - Detailed findings with proof-of-concept requests
 - cURL commands for manual verification
 
+### nuclei
+
+Template-based vulnerability scanner using Nuclei. Performs fast scanning using YAML-based templates for CVE detection, misconfigurations, and more.
+
+**Input:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `host` | string | Target hostname or IP |
+| `port` | int | Target port (default: 80) |
+| `vhost` | string | Virtual host header (optional) |
+| `max_lines` | int | Max output lines (pagination) |
+| `offset` | int | Line offset (pagination) |
+
+**Example:**
+```json
+{"host": "192.168.1.1", "port": 443}
+```
+
+**Output:** Returns JSON lines output including:
+- Template matches with severity levels
+- CVE identifiers when applicable
+- Detailed finding information
+- Affected URLs and parameters
+
 ### full_scan
 
 Comprehensive security scan using all available scanners in parallel. Merges results into a unified report.
@@ -138,7 +164,7 @@ Comprehensive security scan using all available scanners in parallel. Merges res
 **Output:** Unified report containing:
 - Scan summary with timing for each scanner
 - Success/failure status per scanner
-- Merged results from all scanners (nikto, wapiti)
+- Merged results from all scanners (nikto, wapiti, nuclei)
 
 **Features:**
 - Runs all available scanners in parallel
@@ -306,3 +332,4 @@ BSD 3-Clause License - Copyright (c) 2026, Bohdan Turkynevych.
 - **Initial:** Basic MCP server with nikto tool
 - **v1.0:** Added session persistence, execution history, history management tool
 - **v1.1:** Added wapiti web application scanner, comprehensive test suite
+- **v1.2:** Added nuclei template-based vulnerability scanner

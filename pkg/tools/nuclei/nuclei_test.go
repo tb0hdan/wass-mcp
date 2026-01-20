@@ -1,0 +1,163 @@
+package nuclei
+
+import (
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/rs/zerolog"
+	"github.com/stretchr/testify/suite"
+)
+
+type NucleiTestSuite struct {
+	suite.Suite
+	logger zerolog.Logger
+	tool   *Tool
+}
+
+func (s *NucleiTestSuite) SetupTest() {
+	s.logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
+	scanner := New(s.logger)
+	s.tool = scanner.(*Tool)
+}
+
+func (s *NucleiTestSuite) TestNew() {
+	scanner := New(s.logger)
+	s.NotNil(scanner)
+	s.Implements((*interface{ Name() string })(nil), scanner)
+}
+
+func (s *NucleiTestSuite) TestName() {
+	s.Equal("nuclei", s.tool.Name())
+}
+
+func (s *NucleiTestSuite) TestIsAvailable() {
+	// This test just ensures IsAvailable doesn't panic
+	// It may return true or false depending on if nuclei is installed
+	result := s.tool.IsAvailable()
+	s.IsType(true, result)
+}
+
+func (s *NucleiTestSuite) TestFormatOutput_NoTruncation() {
+	output := "line1\nline2\nline3"
+	result := s.tool.formatOutput("http://localhost:80", output, 0, 0)
+
+	s.Contains(result, "nuclei output for http://localhost:80:")
+	s.Contains(result, "line1")
+	s.Contains(result, "line2")
+	s.Contains(result, "line3")
+	s.NotContains(result, "Showing lines")
+}
+
+func (s *NucleiTestSuite) TestFormatOutput_WithTruncation() {
+	// Create output with more lines than maxLines
+	var lines []string
+	for i := 0; i < 100; i++ {
+		lines = append(lines, "line"+string(rune('0'+i%10)))
+	}
+	output := strings.Join(lines, "\n")
+
+	result := s.tool.formatOutput("http://localhost:80", output, 10, 0)
+
+	s.Contains(result, "nuclei output for http://localhost:80:")
+	s.Contains(result, "Showing lines 1-10 of approximately 100 lines")
+}
+
+func (s *NucleiTestSuite) TestFormatOutput_WithOffset() {
+	var lines []string
+	for i := 0; i < 50; i++ {
+		lines = append(lines, "line"+string(rune('A'+i%26)))
+	}
+	output := strings.Join(lines, "\n")
+
+	result := s.tool.formatOutput("http://localhost:80", output, 10, 20)
+
+	s.Contains(result, "Showing lines 21-30 of approximately 50 lines")
+}
+
+func (s *NucleiTestSuite) TestFormatOutput_OffsetBeyondEnd() {
+	output := "line1\nline2\nline3"
+	result := s.tool.formatOutput("http://localhost:80", output, 10, 100)
+
+	// When offset is beyond totalLines, the original truncation logic applies
+	s.Contains(result, "nuclei output for http://localhost:80:")
+}
+
+func (s *NucleiTestSuite) TestFormatOutput_ZeroMaxLines() {
+	// When maxLines is 0, it should use the default
+	output := "line1\nline2\nline3"
+	result := s.tool.formatOutput("http://localhost:80", output, 0, 0)
+
+	s.Contains(result, "line1")
+	s.Contains(result, "line2")
+	s.Contains(result, "line3")
+}
+
+func (s *NucleiTestSuite) TestInput_Validation() {
+	// Test valid input
+	input := Input{
+		Host: "192.168.1.1",
+		Port: 8080,
+	}
+	err := s.tool.validator.Struct(input)
+	s.NoError(err)
+}
+
+func (s *NucleiTestSuite) TestInput_ValidationInvalidHost() {
+	input := Input{
+		Host: "not a valid host!!!",
+		Port: 80,
+	}
+	err := s.tool.validator.Struct(input)
+	s.Error(err)
+}
+
+func (s *NucleiTestSuite) TestInput_ValidationInvalidPort() {
+	input := Input{
+		Host: "localhost",
+		Port: 70000, // Invalid port
+	}
+	err := s.tool.validator.Struct(input)
+	s.Error(err)
+}
+
+func (s *NucleiTestSuite) TestInput_ValidationNegativeOffset() {
+	input := Input{
+		Host:   "localhost",
+		Port:   80,
+		Offset: -1,
+	}
+	err := s.tool.validator.Struct(input)
+	s.Error(err)
+}
+
+func (s *NucleiTestSuite) TestInput_ValidationValidHostname() {
+	input := Input{
+		Host: "example.com",
+		Port: 443,
+	}
+	err := s.tool.validator.Struct(input)
+	s.NoError(err)
+}
+
+func (s *NucleiTestSuite) TestInput_ValidationValidIP() {
+	input := Input{
+		Host: "10.0.0.1",
+		Port: 8080,
+	}
+	err := s.tool.validator.Struct(input)
+	s.NoError(err)
+}
+
+func (s *NucleiTestSuite) TestInput_ValidationEmptyHost() {
+	// Empty host should be valid (uses default)
+	input := Input{
+		Port: 80,
+	}
+	err := s.tool.validator.Struct(input)
+	s.NoError(err)
+}
+
+func TestNucleiTestSuite(t *testing.T) {
+	suite.Run(t, new(NucleiTestSuite))
+}

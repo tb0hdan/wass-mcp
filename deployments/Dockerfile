@@ -16,6 +16,9 @@ RUN CGO_ENABLED=1 GOOS=linux go build \
     -o wass-mcp \
     ./cmd/wass-mcp/*.go
 
+# Install Nuclei in the builder stage
+RUN go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+
 # Stage 2: Runtime
 FROM debian:bookworm-slim
 
@@ -38,8 +41,10 @@ WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /build/wass-mcp .
+COPY --from=builder /go/bin/nuclei /usr/local/bin/nuclei
 
 # Set ownership
+RUN nuclei -update-templates
 RUN chown wass:wass /app/wass-mcp
 
 USER wass
@@ -50,5 +55,4 @@ EXPOSE 8989
 # Default database location
 ENV WASS_DB_PATH=/data/wass-mcp.db
 
-ENTRYPOINT ["/app/wass-mcp"]
-CMD ["--bind", "0.0.0.0:8989", "--db", "/data/wass-mcp.db"]
+CMD ["/app/wass-mcp", "--bind", "0.0.0.0:8989", "--db", "/data/wass-mcp.db"]

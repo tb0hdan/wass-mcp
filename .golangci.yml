@@ -24,6 +24,7 @@ linters:
     - gosec
     - intrange
     - loggercheck
+    - noctx
     - mnd
     - nilerr
     - nilnil

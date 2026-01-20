@@ -1,6 +1,6 @@
 .PHONY: all build tools tag test test-integration
 VERSION ?= $(shell cat cmd/wass-mcp/VERSION)
-LINTER_VERSION ?= v2.7.2
+LINTER_VERSION ?= v2.8.0
 
 all: lint test build
 
@@ -35,7 +35,7 @@ docker-build:
 
 docker-run:
 	@echo "Running Docker container..."
-	@docker run -p 8989:8989 -v wass-data:/data tb0hdan/wass-mcp --bind 0.0.0.0:8989 --db /data/wass-mcp.db --debug
+	@docker run -p 8989:8989 -v wass-data:/data tb0hdan/wass-mcp /app/wass-mcp --bind 0.0.0.0:8989 --db /data/wass-mcp.db --debug
 
 docker-tag: docker-build
 	@echo "Tagging Docker image..."

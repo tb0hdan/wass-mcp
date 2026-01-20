@@ -6,16 +6,17 @@ A Model Context Protocol (MCP) server for web application security scanning.
 
 - **MCP Protocol Support** - Full compatibility with MCP clients (Claude, etc.)
 - **Nikto Integration** - Web server vulnerability scanning
+- **Nuclei Integration** - Template-based vulnerability scanning
 - **Wapiti Integration** - Web application vulnerability scanning
 - **Execution History** - Persistent storage of scan results
 - **Stateless Design** - Survives server restarts without session errors
 - **RESTful HTTP Transport** - Streamable HTTP-based MCP protocol
-- **Comprehensive Test Suite** - Full test coverage for all packages
 
 ## Requirements
 
 - Go 1.25+
 - Nikto (`apt install nikto` or equivalent)
+- Nuclei (`go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest`)
 - Wapiti (`apt install wapiti` or equivalent)
 - SQLite3
 
@@ -99,6 +100,38 @@ Perform web server vulnerability scans using Nikto.
 }
 ```
 
+### nuclei
+
+Perform template-based vulnerability scanning using Nuclei.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `host` | string | Yes | Target hostname or IP address |
+| `port` | integer | No | Target port (default: 80) |
+| `vhost` | string | No | Virtual host header |
+| `max_lines` | integer | No | Maximum output lines |
+| `offset` | integer | No | Output line offset |
+
+**Vulnerabilities Detected:**
+- CVE detection via community templates
+- Misconfigurations
+- Exposed panels/dashboards
+- Default credentials
+- Technology detection
+- Security headers analysis
+- And many more via 8000+ community templates
+
+**Example:**
+
+```json
+{
+  "host": "192.168.1.100",
+  "port": 443
+}
+```
+
 ### wapiti
 
 Perform comprehensive web application vulnerability scans using Wapiti.
@@ -148,7 +181,7 @@ Perform a comprehensive security scan using all available scanners in parallel.
 | `offset` | integer | No | Output line offset |
 
 **Features:**
-- Runs nikto and wapiti scanners in parallel
+- Runs nikto, nuclei and wapiti scanners in parallel
 - Merges results into a unified report
 - Includes timing and status for each scanner
 - Gracefully handles missing scanner binaries
@@ -222,6 +255,7 @@ wass-mcp/
 │   ├── tools/           # MCP tool implementations
 │   │   ├── nikto/       # Nikto web server scanner
 │   │   ├── wapiti/      # Wapiti web app scanner
+│   │   ├── nuclei/      # Nuclei template scanner
 │   │   ├── fullscan/    # Parallel full scan
 │   │   └── history/     # History management
 │   └── types/           # Shared types and constants
@@ -232,6 +266,10 @@ wass-mcp/
 ## Security Notice
 
 This tool is intended for **authorized security testing only**. Ensure you have proper authorization before scanning any systems. Unauthorized scanning may be illegal in your jurisdiction.
+
+## Project notes
+
+For complete project notes, design decisions, and architecture overview, please refer to the [Project Notes](docs/PROJECT_NOTES.md) document.
 
 ## License
 
@@ -249,5 +287,6 @@ BSD 3-Clause License - Copyright (c) 2026, Bohdan Turkynevych. See [LICENSE](LIC
 
 - [Model Context Protocol](https://modelcontextprotocol.io/) - Protocol specification
 - [Nikto](https://cirt.net/Nikto2) - Web server scanner
+- [Nuclei](https://github.com/projectdiscovery/nuclei) - Template-based vulnerability scanner
 - [Wapiti](https://wapiti-scanner.github.io/) - Web application vulnerability scanner
 - [GORM](https://gorm.io/) - Go ORM library
