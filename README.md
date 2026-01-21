@@ -23,7 +23,7 @@ A Model Context Protocol (MCP) server for web application security scanning.
 ## Usage
 
 ```bash
-docker run -p 8989:8989 tb0hdan/wass-mcp
+docker run -p 127.0.0.1:8989:8989 tb0hdan/wass-mcp
 ```
 
 ### MCP Client Configuration
