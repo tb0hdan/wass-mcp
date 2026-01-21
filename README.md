@@ -20,46 +20,11 @@ A Model Context Protocol (MCP) server for web application security scanning.
 - Wapiti (`apt install wapiti` or equivalent)
 - SQLite3
 
-## Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/tb0hdan/wass-mcp.git
-cd wass-mcp
-
-# Build
-make build
-
-# Run
-./build/wass-mcp
-```
-
 ## Usage
 
-### Starting the Server
-
 ```bash
-# Default (localhost:8989)
-./build/wass-mcp
-
-# Custom bind address
-./build/wass-mcp --bind 0.0.0.0:8080
-
-# Custom database path
-./build/wass-mcp --db /var/lib/wass-mcp/data.db
-
-# Debug mode
-./build/wass-mcp --debug
+docker run -p 8989:8989 tb0hdan/wass-mcp
 ```
-
-### Configuration Options
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--bind` | `localhost:8989` | HTTP server bind address |
-| `--db` | `./wass-mcp.db` | SQLite database file path |
-| `--debug` | `false` | Enable debug logging |
-| `--version` | - | Print version and exit |
 
 ### MCP Client Configuration
 
@@ -223,13 +188,47 @@ Browse and manage tool execution history.
 | `GET /` | Service information (JSON) |
 | `GET /debug/pprof/*` | Profiling endpoints |
 
-## Development
+## Development and advanced usage
 
-### Building
+### Source build
 
 ```bash
+# Clone the repository
+git clone https://github.com/tb0hdan/wass-mcp.git
+cd wass-mcp
+
+# Build
 make build
+
+# Run
+./build/wass-mcp
 ```
+
+### Starting the Server
+
+```bash
+# Default (localhost:8989)
+./build/wass-mcp
+
+# Custom bind address
+./build/wass-mcp --bind 0.0.0.0:8080
+
+# Custom database path
+./build/wass-mcp --db /var/lib/wass-mcp/data.db
+
+# Debug mode
+./build/wass-mcp --debug
+```
+
+### Configuration Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--bind` | `localhost:8989` | HTTP server bind address |
+| `--db` | `./wass-mcp.db` | SQLite database file path |
+| `--debug` | `false` | Enable debug logging |
+| `--version` | - | Print version and exit |
+
 
 ### Linting
 

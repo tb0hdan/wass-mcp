@@ -80,6 +80,7 @@ func main() {
 		logger.Fatal().Msgf("Failed to initialize storage: %v", err)
 	}
 	logger.Info().Msgf("Database initialized at %s", dbPath)
+	logger.Info().Msgf("Starting %s Version: %s", ServiceName, version)
 
 	srv := server.NewServer(impl, store)
 

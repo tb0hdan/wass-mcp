@@ -3,12 +3,16 @@ package storage
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/tb0hdan/wass-mcp/pkg/models"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+const defaultDirPerms = 0o750
 
 type SQLiteStorage struct {
 	db *gorm.DB
@@ -23,6 +27,14 @@ func NewSQLiteStorage(cfg Config) (*SQLiteStorage, error) {
 	logLevel := logger.Silent
 	if cfg.Debug {
 		logLevel = logger.Info
+	}
+
+	// Ensure parent directory exists for SQLite database file
+	dir := filepath.Dir(cfg.DatabasePath)
+	if dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, defaultDirPerms); err != nil {
+			return nil, fmt.Errorf("failed to create database directory: %w", err)
+		}
 	}
 
 	database, err := gorm.Open(sqlite.Open(cfg.DatabasePath), &gorm.Config{
