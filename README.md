@@ -28,16 +28,16 @@ docker run -p 127.0.0.1:8989:8989 tb0hdan/wass-mcp
 
 ### MCP Client Configuration
 
-Add to your MCP client configuration:
+Example command to add WASS-MCP server to Claude MCP clients:
 
-```json
-{
-  "mcpServers": {
-    "wass-mcp": {
-      "url": "http://localhost:8989/mcp"
-    }
-  }
-}
+```bash
+claude mcp add wass-mcp --transport http http://127.0.0.1:8989
+```
+
+or Gemini:
+
+```bash
+gemini mcp add wass-mcp --transport http http://127.0.0.1:8989
 ```
 
 ## Available Tools
