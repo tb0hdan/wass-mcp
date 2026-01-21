@@ -12,13 +12,6 @@ A Model Context Protocol (MCP) server for web application security scanning.
 - **Stateless Design** - Survives server restarts without session errors
 - **RESTful HTTP Transport** - Streamable HTTP-based MCP protocol
 
-## Requirements
-
-- Go 1.25+
-- Nikto (`apt install nikto` or equivalent)
-- Nuclei (`go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest`)
-- Wapiti (`apt install wapiti` or equivalent)
-- SQLite3
 
 ## Usage
 
@@ -190,8 +183,14 @@ Browse and manage tool execution history.
 
 ## Development and advanced usage
 
-### Source build
+### Source build requirements
 
+- Go 1.25+
+- Nikto (`apt install nikto` or equivalent)
+- Nuclei (`go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest`)
+- Wapiti (`apt install wapiti` or equivalent)
+- SQLite3
+- 
 ```bash
 # Clone the repository
 git clone https://github.com/tb0hdan/wass-mcp.git
