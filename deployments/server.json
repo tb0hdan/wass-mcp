@@ -1,0 +1,12 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.tb0hdan/wass-mcp",
+  "description": "MCP server for web application security scanning",
+  "repository": {
+    "url": "https://github.com/tb0hdan/wass-mcp",
+    "source": "github"
+  },
+  "version": "1.0.3",
+  "packages": [],
+  "remotes": []
+}
