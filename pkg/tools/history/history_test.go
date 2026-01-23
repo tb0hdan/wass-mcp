@@ -395,3 +395,54 @@ func TestHistoryHandler_DefaultLimit(t *testing.T) {
 		t.Errorf("expected default limit of 10, got %d", len(executions))
 	}
 }
+
+func TestRegister(t *testing.T) {
+	srv, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	logger := zerolog.New(os.Stdout)
+	tool := New(logger).(*Tool)
+
+	err := tool.Register(srv)
+	if err != nil {
+		t.Fatalf("Register() returned error: %v", err)
+	}
+
+	// Verify the store was set
+	if tool.store == nil {
+		t.Error("expected store to be set after Register()")
+	}
+}
+
+func TestRegister_SetsStorage(t *testing.T) {
+	srv, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	logger := zerolog.New(os.Stdout)
+	tool := New(logger).(*Tool)
+
+	// Before register, store should be nil
+	if tool.store != nil {
+		t.Error("expected store to be nil before Register()")
+	}
+
+	err := tool.Register(srv)
+	if err != nil {
+		t.Fatalf("Register() returned error: %v", err)
+	}
+
+	// After register, store should be set
+	if tool.store == nil {
+		t.Error("expected store to be set after Register()")
+	}
+
+	// Verify we can use it
+	ctx := context.Background()
+	_, total, err := tool.store.GetToolExecutions(ctx, 10, 0)
+	if err != nil {
+		t.Fatalf("failed to use store after Register(): %v", err)
+	}
+	if total != 0 {
+		t.Errorf("expected 0 executions, got %d", total)
+	}
+}

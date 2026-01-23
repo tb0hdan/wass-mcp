@@ -1,12 +1,15 @@
 package nuclei
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/suite"
+	"github.com/tb0hdan/wass-mcp/pkg/tools"
 )
 
 type NucleiTestSuite struct {
@@ -156,6 +159,137 @@ func (s *NucleiTestSuite) TestInput_ValidationEmptyHost() {
 	}
 	err := s.tool.validator.Struct(input)
 	s.NoError(err)
+}
+
+func (s *NucleiTestSuite) TestNucleiHandler_ValidationError() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host: "invalid host!!!",
+		Port: 80,
+	}
+
+	result, output, err := s.tool.NucleiHandler(ctx, req, input)
+	s.Nil(result)
+	s.Nil(output)
+	s.Error(err)
+	s.Contains(err.Error(), "validation error")
+}
+
+func (s *NucleiTestSuite) TestNucleiHandler_ValidationErrorInvalidPort() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host: "localhost",
+		Port: 70000,
+	}
+
+	result, output, err := s.tool.NucleiHandler(ctx, req, input)
+	s.Nil(result)
+	s.Nil(output)
+	s.Error(err)
+	s.Contains(err.Error(), "validation error")
+}
+
+func (s *NucleiTestSuite) TestNucleiHandler_ValidationErrorNegativeOffset() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host:   "localhost",
+		Port:   80,
+		Offset: -1,
+	}
+
+	result, output, err := s.tool.NucleiHandler(ctx, req, input)
+	s.Nil(result)
+	s.Nil(output)
+	s.Error(err)
+	s.Contains(err.Error(), "validation error")
+}
+
+func (s *NucleiTestSuite) TestNucleiHandler_ValidationErrorMaxLinesExceeded() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host:     "localhost",
+		Port:     80,
+		MaxLines: 200000,
+	}
+
+	result, output, err := s.tool.NucleiHandler(ctx, req, input)
+	s.Nil(result)
+	s.Nil(output)
+	s.Error(err)
+	s.Contains(err.Error(), "validation error")
+}
+
+func (s *NucleiTestSuite) TestNucleiHandler_DefaultsApplied() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{}
+
+	// Validation should pass
+	err := s.tool.validator.Struct(input)
+	s.NoError(err)
+
+	// If nuclei is not available, the handler will fail during Scan
+	result, _, err := s.tool.NucleiHandler(ctx, req, input)
+	if err != nil {
+		s.Contains(err.Error(), "nuclei")
+	} else {
+		s.NotNil(result)
+		s.NotEmpty(result.Content)
+	}
+}
+
+func (s *NucleiTestSuite) TestNucleiHandler_WithVhost() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host:  "192.168.1.1",
+		Port:  8080,
+		Vhost: "example.com",
+	}
+
+	// Validation should pass
+	err := s.tool.validator.Struct(input)
+	s.NoError(err)
+
+	// Test handler (will fail if nuclei not installed, but validates input path)
+	result, _, err := s.tool.NucleiHandler(ctx, req, input)
+	if err != nil {
+		s.Contains(err.Error(), "nuclei")
+	} else {
+		s.NotNil(result)
+	}
+}
+
+func (s *NucleiTestSuite) TestScan_DefaultHost() {
+	ctx := context.Background()
+
+	// Test Scan with empty host - should use default
+	result := s.tool.Scan(ctx, tools.ScanParams{Host: "", Port: 0, Vhost: ""})
+
+	// If nuclei is not installed, we expect an error
+	if result.Error != nil {
+		s.Contains(result.Error.Error(), "nuclei")
+	}
+}
+
+func (s *NucleiTestSuite) TestScan_WithVhost() {
+	ctx := context.Background()
+
+	// Test Scan with vhost parameter
+	result := s.tool.Scan(ctx, tools.ScanParams{
+		Host:  "localhost",
+		Port:  8080,
+		Vhost: "test.example.com",
+	})
+
+	// If nuclei is not installed, we expect an error
+	if result.Error != nil {
+		s.Contains(result.Error.Error(), "nuclei")
+	}
 }
 
 func TestNucleiTestSuite(t *testing.T) {

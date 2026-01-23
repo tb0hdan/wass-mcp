@@ -1,12 +1,15 @@
 package wapiti
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/suite"
+	"github.com/tb0hdan/wass-mcp/pkg/tools"
 )
 
 type WapitiTestSuite struct {
@@ -156,6 +159,137 @@ func (s *WapitiTestSuite) TestInput_ValidationEmptyHost() {
 	}
 	err := s.tool.validator.Struct(input)
 	s.NoError(err)
+}
+
+func (s *WapitiTestSuite) TestWapitiHandler_ValidationError() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host: "invalid host!!!",
+		Port: 80,
+	}
+
+	result, output, err := s.tool.WapitiHandler(ctx, req, input)
+	s.Nil(result)
+	s.Nil(output)
+	s.Error(err)
+	s.Contains(err.Error(), "validation error")
+}
+
+func (s *WapitiTestSuite) TestWapitiHandler_ValidationErrorInvalidPort() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host: "localhost",
+		Port: 70000,
+	}
+
+	result, output, err := s.tool.WapitiHandler(ctx, req, input)
+	s.Nil(result)
+	s.Nil(output)
+	s.Error(err)
+	s.Contains(err.Error(), "validation error")
+}
+
+func (s *WapitiTestSuite) TestWapitiHandler_ValidationErrorNegativeOffset() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host:   "localhost",
+		Port:   80,
+		Offset: -1,
+	}
+
+	result, output, err := s.tool.WapitiHandler(ctx, req, input)
+	s.Nil(result)
+	s.Nil(output)
+	s.Error(err)
+	s.Contains(err.Error(), "validation error")
+}
+
+func (s *WapitiTestSuite) TestWapitiHandler_ValidationErrorMaxLinesExceeded() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host:     "localhost",
+		Port:     80,
+		MaxLines: 200000,
+	}
+
+	result, output, err := s.tool.WapitiHandler(ctx, req, input)
+	s.Nil(result)
+	s.Nil(output)
+	s.Error(err)
+	s.Contains(err.Error(), "validation error")
+}
+
+func (s *WapitiTestSuite) TestWapitiHandler_DefaultsApplied() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{}
+
+	// Validation should pass
+	err := s.tool.validator.Struct(input)
+	s.NoError(err)
+
+	// If wapiti is not available, the handler will fail during Scan
+	result, _, err := s.tool.WapitiHandler(ctx, req, input)
+	if err != nil {
+		s.Contains(err.Error(), "wapiti")
+	} else {
+		s.NotNil(result)
+		s.NotEmpty(result.Content)
+	}
+}
+
+func (s *WapitiTestSuite) TestWapitiHandler_WithVhost() {
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host:  "192.168.1.1",
+		Port:  8080,
+		Vhost: "example.com",
+	}
+
+	// Validation should pass
+	err := s.tool.validator.Struct(input)
+	s.NoError(err)
+
+	// Test handler (will fail if wapiti not installed, but validates input path)
+	result, _, err := s.tool.WapitiHandler(ctx, req, input)
+	if err != nil {
+		s.Contains(err.Error(), "wapiti")
+	} else {
+		s.NotNil(result)
+	}
+}
+
+func (s *WapitiTestSuite) TestScan_DefaultHost() {
+	ctx := context.Background()
+
+	// Test Scan with empty host - should use default
+	result := s.tool.Scan(ctx, tools.ScanParams{Host: "", Port: 0, Vhost: ""})
+
+	// If wapiti is not installed, we expect an error
+	if result.Error != nil {
+		s.Contains(result.Error.Error(), "wapiti")
+	}
+}
+
+func (s *WapitiTestSuite) TestScan_WithVhost() {
+	ctx := context.Background()
+
+	// Test Scan with vhost parameter
+	result := s.tool.Scan(ctx, tools.ScanParams{
+		Host:  "localhost",
+		Port:  8080,
+		Vhost: "test.example.com",
+	})
+
+	// If wapiti is not installed, we expect an error
+	if result.Error != nil {
+		s.Contains(result.Error.Error(), "wapiti")
+	}
 }
 
 func TestWapitiTestSuite(t *testing.T) {

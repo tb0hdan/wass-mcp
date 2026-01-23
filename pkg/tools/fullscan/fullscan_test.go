@@ -8,9 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/suite"
 	"github.com/tb0hdan/wass-mcp/pkg/server"
+	"github.com/tb0hdan/wass-mcp/pkg/storage"
 	"github.com/tb0hdan/wass-mcp/pkg/tools"
 )
 
@@ -381,6 +383,242 @@ func (s *FullScanTestSuite) TestInput_ValidationMaxLinesExceeded() {
 	}
 	err := tool.validator.Struct(input)
 	s.Error(err)
+}
+
+func (s *FullScanTestSuite) setupTestServer() (*server.Server, func()) {
+	tmpFile, err := os.CreateTemp("", "fullscan-test-*.db")
+	s.Require().NoError(err)
+	tmpFile.Close()
+
+	cfg := storage.Config{
+		DatabasePath: tmpFile.Name(),
+		Debug:        false,
+	}
+
+	store, err := storage.NewSQLiteStorage(cfg)
+	s.Require().NoError(err)
+
+	impl := &mcp.Implementation{
+		Name:    "test-server",
+		Version: "1.0.0",
+	}
+
+	srv := server.NewServer(impl, store)
+
+	cleanup := func() {
+		srv.Shutdown(context.Background())
+		os.Remove(tmpFile.Name())
+	}
+
+	return srv, cleanup
+}
+
+func (s *FullScanTestSuite) TestRegister_NoScannersAvailable() {
+	scanner1 := &mockScanner{name: "mock1", available: false}
+	scanner2 := &mockScanner{name: "mock2", available: false}
+
+	tool := New(s.logger, scanner1, scanner2).(*Tool)
+
+	srv, cleanup := s.setupTestServer()
+	defer cleanup()
+
+	// Register should fail when no scanners are available
+	err := tool.Register(srv)
+	s.Error(err)
+	s.Contains(err.Error(), "no scanner binaries available")
+}
+
+func (s *FullScanTestSuite) TestRegister_SomeScannersAvailable() {
+	scanner1 := &mockScanner{name: "mock1", available: true}
+	scanner2 := &mockScanner{name: "mock2", available: false}
+	scanner3 := &mockScanner{name: "mock3", available: true}
+
+	tool := New(s.logger, scanner1, scanner2, scanner3).(*Tool)
+
+	srv, cleanup := s.setupTestServer()
+	defer cleanup()
+
+	// Register should succeed with at least one available scanner
+	err := tool.Register(srv)
+	s.NoError(err)
+
+	// Verify only available scanners are kept
+	s.Len(tool.scanners, 2)
+}
+
+func (s *FullScanTestSuite) TestRegister_AllScannersAvailable() {
+	scanner1 := &mockScanner{name: "mock1", available: true}
+	scanner2 := &mockScanner{name: "mock2", available: true}
+
+	tool := New(s.logger, scanner1, scanner2).(*Tool)
+
+	srv, cleanup := s.setupTestServer()
+	defer cleanup()
+
+	// Register should succeed
+	err := tool.Register(srv)
+	s.NoError(err)
+
+	// All scanners should be kept
+	s.Len(tool.scanners, 2)
+}
+
+func (s *FullScanTestSuite) TestFullScanHandler_ValidationError() {
+	scanner := &mockScanner{name: "mock1", available: true, scanOutput: "test"}
+	tool := New(s.logger, scanner).(*Tool)
+	tool.scanners = []tools.Scanner{scanner}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host: "invalid host!!!",
+		Port: 80,
+	}
+
+	result, output, err := tool.FullScanHandler(ctx, req, input)
+	s.Nil(result)
+	s.Nil(output)
+	s.Error(err)
+	s.Contains(err.Error(), "validation error")
+}
+
+func (s *FullScanTestSuite) TestFullScanHandler_ValidationErrorInvalidPort() {
+	scanner := &mockScanner{name: "mock1", available: true, scanOutput: "test"}
+	tool := New(s.logger, scanner).(*Tool)
+	tool.scanners = []tools.Scanner{scanner}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host: "localhost",
+		Port: 70000,
+	}
+
+	result, output, err := tool.FullScanHandler(ctx, req, input)
+	s.Nil(result)
+	s.Nil(output)
+	s.Error(err)
+	s.Contains(err.Error(), "validation error")
+}
+
+func (s *FullScanTestSuite) TestFullScanHandler_Success() {
+	scanner1 := &mockScanner{name: "scanner1", available: true, scanOutput: "findings from scanner1"}
+	scanner2 := &mockScanner{name: "scanner2", available: true, scanOutput: "findings from scanner2"}
+
+	tool := New(s.logger, scanner1, scanner2).(*Tool)
+	tool.scanners = []tools.Scanner{scanner1, scanner2}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host: "192.168.1.1",
+		Port: 8080,
+	}
+
+	result, _, err := tool.FullScanHandler(ctx, req, input)
+	s.NoError(err)
+	s.NotNil(result)
+	s.Len(result.Content, 1)
+
+	textContent := result.Content[0].(*mcp.TextContent)
+	s.Contains(textContent.Text, "FULL SECURITY SCAN REPORT")
+	s.Contains(textContent.Text, "scanner1")
+	s.Contains(textContent.Text, "scanner2")
+	s.Contains(textContent.Text, "findings from scanner1")
+	s.Contains(textContent.Text, "findings from scanner2")
+}
+
+func (s *FullScanTestSuite) TestFullScanHandler_DefaultsApplied() {
+	scanner := &mockScanner{name: "mock1", available: true, scanOutput: "test output"}
+	tool := New(s.logger, scanner).(*Tool)
+	tool.scanners = []tools.Scanner{scanner}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{} // All defaults
+
+	result, _, err := tool.FullScanHandler(ctx, req, input)
+	s.NoError(err)
+	s.NotNil(result)
+
+	// Verify the scanner was called with defaults
+	s.True(scanner.scanCalled)
+	s.Equal("localhost", scanner.scanParams.Host)
+	s.Equal(80, scanner.scanParams.Port)
+}
+
+func (s *FullScanTestSuite) TestFullScanHandler_WithPagination() {
+	// Create scanner that returns many lines
+	var lines []string
+	for i := 0; i < 1000; i++ {
+		lines = append(lines, "line")
+	}
+	output := strings.Join(lines, "\n")
+
+	scanner := &mockScanner{name: "mock1", available: true, scanOutput: output}
+	tool := New(s.logger, scanner).(*Tool)
+	tool.scanners = []tools.Scanner{scanner}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host:     "localhost",
+		Port:     80,
+		MaxLines: 50,
+		Offset:   10,
+	}
+
+	result, _, err := tool.FullScanHandler(ctx, req, input)
+	s.NoError(err)
+	s.NotNil(result)
+
+	textContent := result.Content[0].(*mcp.TextContent)
+	s.Contains(textContent.Text, "Showing lines")
+}
+
+func (s *FullScanTestSuite) TestFullScanHandler_WithVhost() {
+	scanner := &mockScanner{name: "mock1", available: true, scanOutput: "test"}
+	tool := New(s.logger, scanner).(*Tool)
+	tool.scanners = []tools.Scanner{scanner}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{
+		Host:  "192.168.1.1",
+		Port:  8080,
+		Vhost: "example.com",
+	}
+
+	result, _, err := tool.FullScanHandler(ctx, req, input)
+	s.NoError(err)
+	s.NotNil(result)
+
+	// Verify vhost was passed to scanner
+	s.Equal("example.com", scanner.scanParams.Vhost)
+}
+
+func (s *FullScanTestSuite) TestFullScanHandler_WithScannerError() {
+	scanner := &mockScanner{
+		name:       "mock1",
+		available:  true,
+		scanOutput: "partial output",
+		scanError:  errors.New("scan failed"),
+	}
+	tool := New(s.logger, scanner).(*Tool)
+	tool.scanners = []tools.Scanner{scanner}
+
+	ctx := context.Background()
+	req := &mcp.CallToolRequest{}
+	input := Input{Host: "localhost", Port: 80}
+
+	// Handler should still return results even if scanner fails
+	result, _, err := tool.FullScanHandler(ctx, req, input)
+	s.NoError(err)
+	s.NotNil(result)
+
+	textContent := result.Content[0].(*mcp.TextContent)
+	s.Contains(textContent.Text, "FAILED")
+	s.Contains(textContent.Text, "scan failed")
 }
 
 func TestFullScanTestSuite(t *testing.T) {
