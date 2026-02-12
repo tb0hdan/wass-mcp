@@ -33,7 +33,7 @@ docker-build:
 	@echo "Building Docker image..."
 	@docker build -t tb0hdan/wass-mcp -f deployments/Dockerfile .
 
-docker-run: docker-build
+docker-run:
 	@echo "Running Docker container..."
 	@docker run -p 127.0.0.1:8989:8989 -v wass-data:/data tb0hdan/wass-mcp /app/wass-mcp --bind 0.0.0.0:8989 --db /data/wass-mcp.db --debug
 
