@@ -229,22 +229,66 @@ type Tool interface {
 }
 ```
 
-The `Register` method:
-1. Checks if required binary exists (e.g., nikto, wapiti)
-2. Creates an `mcp.Tool` definition
-3. Wraps the handler with `WrapToolHandler` for logging
-4. Registers with `mcp.AddTool`
-5. Returns error if tool cannot be registered (e.g., missing binary)
+Scanner tools extend the `tools.BaseScanner` struct for common functionality:
+```go
+type BaseScanner struct {
+    BinaryName  string
+    Description string
+    Logger      zerolog.Logger
+    Validator   *validator.Validate
+}
+```
+
+The `BaseScanner` provides:
+- `Name()` - Returns the scanner binary name
+- `IsAvailable()` - Checks if binary exists in PATH
+- `ValidateInput()` - Validates input using go-playground/validator
+- `ResolveHostPort()` - Applies default host/port values
+- `RegisterTool()` - Handles common registration logic
+
+### Shared Types
+
+All scanner tools use shared types from `pkg/tools`:
+```go
+// ScannerInput - Common MCP tool input parameters
+type ScannerInput struct {
+    Host     string `json:"host,omitempty" validate:"omitempty,hostname|ip"`
+    MaxLines int    `json:"max_lines,omitempty" validate:"min=0,max=100000"`
+    Offset   int    `json:"offset,omitempty" validate:"min=0"`
+    Port     int    `json:"port,omitempty" validate:"min=0,max=65535"`
+    Vhost    string `json:"vhost,omitempty"`
+}
+
+// ScanParams - Parameters passed to Scan method
+type ScanParams struct {
+    Host  string
+    Port  int
+    Vhost string
+}
+
+// ScanResult - Result returned from Scan method
+type ScanResult struct {
+    Error  error
+    Output string
+}
+```
 
 ### Handler Signature (MCP SDK v1.x)
 
 ```go
-func Handler(ctx context.Context, req *mcp.CallToolRequest, input InputType) (
+func Handler(ctx context.Context, req *mcp.CallToolRequest, input tools.ScannerInput) (
     *mcp.CallToolResult,
-    OutputType,
+    any,
     error,
 )
 ```
+
+### Shared Utility Functions
+
+The `pkg/tools` package provides shared utility functions:
+- `ApplyPagination()` - Applies pagination to output strings
+- `FormatScannerOutput()` - Formats scanner output with pagination info
+- `BuildTargetURL()` - Constructs HTTP URL from host and port
 
 ## Development Commands
 
@@ -333,3 +377,9 @@ BSD 3-Clause License - Copyright (c) 2026, Bohdan Turkynevych.
 - **v1.0:** Added session persistence, execution history, history management tool
 - **v1.1:** Added wapiti web application scanner, comprehensive test suite
 - **v1.2:** Added nuclei template-based vulnerability scanner
+- **v1.3:** Refactored scanner tools to eliminate code duplication:
+  - Added `BaseScanner` struct with common functionality
+  - Added shared `ScannerInput` type for all scanner tools
+  - Added shared `ApplyPagination()` and `FormatScannerOutput()` functions
+  - Added shared constants `DefaultHost` and `DefaultPort` in `pkg/types`
+  - Reduced code duplication across nikto, wapiti, nuclei, and fullscan tools

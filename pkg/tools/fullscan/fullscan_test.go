@@ -18,12 +18,12 @@ import (
 
 // mockScanner is a mock implementation of tools.Scanner for testing.
 type mockScanner struct {
-	name       string
 	available  bool
-	scanOutput string
-	scanError  error
-	scanDelay  time.Duration
+	name       string
 	scanCalled bool
+	scanDelay  time.Duration
+	scanError  error
+	scanOutput string
 	scanParams tools.ScanParams
 }
 
@@ -35,7 +35,7 @@ func (m *mockScanner) IsAvailable() bool {
 	return m.available
 }
 
-func (m *mockScanner) Scan(ctx context.Context, params tools.ScanParams) tools.ScanResult {
+func (m *mockScanner) Scan(_ context.Context, params tools.ScanParams) tools.ScanResult {
 	m.scanCalled = true
 	m.scanParams = params
 
@@ -132,7 +132,7 @@ func (s *FullScanTestSuite) TestRunScannersParallel_MultipleScanners() {
 	s.True(scanner1.scanCalled)
 	s.True(scanner2.scanCalled)
 
-	// Verify params were passed correctly
+	// Verify params were passed correctly.
 	s.Equal("example.com", scanner1.scanParams.Host)
 	s.Equal(8080, scanner1.scanParams.Port)
 	s.Equal("test.example.com", scanner1.scanParams.Vhost)
@@ -162,7 +162,7 @@ func (s *FullScanTestSuite) TestRunScannersParallel_WithError() {
 }
 
 func (s *FullScanTestSuite) TestRunScannersParallel_Concurrent() {
-	// Test that scanners actually run in parallel
+	// Test that scanners actually run in parallel.
 	scanner1 := &mockScanner{
 		name:       "mock1",
 		available:  true,
@@ -187,8 +187,8 @@ func (s *FullScanTestSuite) TestRunScannersParallel_Concurrent() {
 	duration := time.Since(start)
 
 	s.Len(results, 2)
-	// If running in parallel, total time should be less than 100ms (50ms + 50ms)
-	// Allow some buffer for test environment
+	// If running in parallel, total time should be less than 100ms (50ms + 50ms).
+	// Allow some buffer for test environment.
 	s.Less(duration, 150*time.Millisecond)
 }
 
@@ -312,15 +312,15 @@ func (s *FullScanTestSuite) TestApplyPagination_OffsetBeyondEnd() {
 	output := "line1\nline2\nline3"
 	result := tool.applyPagination(output, 10, 100)
 
-	// When offset is beyond totalLines, output should still be returned
+	// When offset is beyond totalLines, output should still be returned.
 	s.NotEmpty(result)
 }
 
-func (s *FullScanTestSuite) TestInput_Validation() {
+func (s *FullScanTestSuite) TestScannerInput_Validation() {
 	tool := New(s.logger).(*Tool)
 
-	// Test valid input
-	input := Input{
+	// Test valid input.
+	input := tools.ScannerInput{
 		Host: "192.168.1.1",
 		Port: 8080,
 	}
@@ -328,10 +328,10 @@ func (s *FullScanTestSuite) TestInput_Validation() {
 	s.NoError(err)
 }
 
-func (s *FullScanTestSuite) TestInput_ValidationInvalidHost() {
+func (s *FullScanTestSuite) TestScannerInput_ValidationInvalidHost() {
 	tool := New(s.logger).(*Tool)
 
-	input := Input{
+	input := tools.ScannerInput{
 		Host: "not a valid host!!!",
 		Port: 80,
 	}
@@ -339,32 +339,32 @@ func (s *FullScanTestSuite) TestInput_ValidationInvalidHost() {
 	s.Error(err)
 }
 
-func (s *FullScanTestSuite) TestInput_ValidationInvalidPort() {
+func (s *FullScanTestSuite) TestScannerInput_ValidationInvalidPort() {
 	tool := New(s.logger).(*Tool)
 
-	input := Input{
+	input := tools.ScannerInput{
 		Host: "localhost",
-		Port: 70000, // Invalid port
+		Port: 70000, // Invalid port.
 	}
 	err := tool.validator.Struct(input)
 	s.Error(err)
 }
 
-func (s *FullScanTestSuite) TestInput_ValidationEmptyHost() {
+func (s *FullScanTestSuite) TestScannerInput_ValidationEmptyHost() {
 	tool := New(s.logger).(*Tool)
 
-	// Empty host should be valid (uses default)
-	input := Input{
+	// Empty host should be valid (uses default).
+	input := tools.ScannerInput{
 		Port: 80,
 	}
 	err := tool.validator.Struct(input)
 	s.NoError(err)
 }
 
-func (s *FullScanTestSuite) TestInput_ValidationWithVhost() {
+func (s *FullScanTestSuite) TestScannerInput_ValidationWithVhost() {
 	tool := New(s.logger).(*Tool)
 
-	input := Input{
+	input := tools.ScannerInput{
 		Host:  "192.168.1.1",
 		Port:  80,
 		Vhost: "example.com",
@@ -373,13 +373,13 @@ func (s *FullScanTestSuite) TestInput_ValidationWithVhost() {
 	s.NoError(err)
 }
 
-func (s *FullScanTestSuite) TestInput_ValidationMaxLinesExceeded() {
+func (s *FullScanTestSuite) TestScannerInput_ValidationMaxLinesExceeded() {
 	tool := New(s.logger).(*Tool)
 
-	input := Input{
+	input := tools.ScannerInput{
 		Host:     "localhost",
 		Port:     80,
-		MaxLines: 200000, // Exceeds max of 100000
+		MaxLines: 200000, // Exceeds max of 100000.
 	}
 	err := tool.validator.Struct(input)
 	s.Error(err)
@@ -422,7 +422,7 @@ func (s *FullScanTestSuite) TestRegister_NoScannersAvailable() {
 	srv, cleanup := s.setupTestServer()
 	defer cleanup()
 
-	// Register should fail when no scanners are available
+	// Register should fail when no scanners are available.
 	err := tool.Register(srv)
 	s.Error(err)
 	s.Contains(err.Error(), "no scanner binaries available")
@@ -438,11 +438,11 @@ func (s *FullScanTestSuite) TestRegister_SomeScannersAvailable() {
 	srv, cleanup := s.setupTestServer()
 	defer cleanup()
 
-	// Register should succeed with at least one available scanner
+	// Register should succeed with at least one available scanner.
 	err := tool.Register(srv)
 	s.NoError(err)
 
-	// Verify only available scanners are kept
+	// Verify only available scanners are kept.
 	s.Len(tool.scanners, 2)
 }
 
@@ -455,11 +455,11 @@ func (s *FullScanTestSuite) TestRegister_AllScannersAvailable() {
 	srv, cleanup := s.setupTestServer()
 	defer cleanup()
 
-	// Register should succeed
+	// Register should succeed.
 	err := tool.Register(srv)
 	s.NoError(err)
 
-	// All scanners should be kept
+	// All scanners should be kept.
 	s.Len(tool.scanners, 2)
 }
 
@@ -470,7 +470,7 @@ func (s *FullScanTestSuite) TestFullScanHandler_ValidationError() {
 
 	ctx := context.Background()
 	req := &mcp.CallToolRequest{}
-	input := Input{
+	input := tools.ScannerInput{
 		Host: "invalid host!!!",
 		Port: 80,
 	}
@@ -489,7 +489,7 @@ func (s *FullScanTestSuite) TestFullScanHandler_ValidationErrorInvalidPort() {
 
 	ctx := context.Background()
 	req := &mcp.CallToolRequest{}
-	input := Input{
+	input := tools.ScannerInput{
 		Host: "localhost",
 		Port: 70000,
 	}
@@ -510,7 +510,7 @@ func (s *FullScanTestSuite) TestFullScanHandler_Success() {
 
 	ctx := context.Background()
 	req := &mcp.CallToolRequest{}
-	input := Input{
+	input := tools.ScannerInput{
 		Host: "192.168.1.1",
 		Port: 8080,
 	}
@@ -535,20 +535,20 @@ func (s *FullScanTestSuite) TestFullScanHandler_DefaultsApplied() {
 
 	ctx := context.Background()
 	req := &mcp.CallToolRequest{}
-	input := Input{} // All defaults
+	input := tools.ScannerInput{} // All defaults.
 
 	result, _, err := tool.FullScanHandler(ctx, req, input)
 	s.NoError(err)
 	s.NotNil(result)
 
-	// Verify the scanner was called with defaults
+	// Verify the scanner was called with defaults.
 	s.True(scanner.scanCalled)
 	s.Equal("localhost", scanner.scanParams.Host)
 	s.Equal(80, scanner.scanParams.Port)
 }
 
 func (s *FullScanTestSuite) TestFullScanHandler_WithPagination() {
-	// Create scanner that returns many lines
+	// Create scanner that returns many lines.
 	var lines []string
 	for i := 0; i < 1000; i++ {
 		lines = append(lines, "line")
@@ -561,7 +561,7 @@ func (s *FullScanTestSuite) TestFullScanHandler_WithPagination() {
 
 	ctx := context.Background()
 	req := &mcp.CallToolRequest{}
-	input := Input{
+	input := tools.ScannerInput{
 		Host:     "localhost",
 		Port:     80,
 		MaxLines: 50,
@@ -583,7 +583,7 @@ func (s *FullScanTestSuite) TestFullScanHandler_WithVhost() {
 
 	ctx := context.Background()
 	req := &mcp.CallToolRequest{}
-	input := Input{
+	input := tools.ScannerInput{
 		Host:  "192.168.1.1",
 		Port:  8080,
 		Vhost: "example.com",
@@ -593,7 +593,7 @@ func (s *FullScanTestSuite) TestFullScanHandler_WithVhost() {
 	s.NoError(err)
 	s.NotNil(result)
 
-	// Verify vhost was passed to scanner
+	// Verify vhost was passed to scanner.
 	s.Equal("example.com", scanner.scanParams.Vhost)
 }
 
@@ -609,9 +609,9 @@ func (s *FullScanTestSuite) TestFullScanHandler_WithScannerError() {
 
 	ctx := context.Background()
 	req := &mcp.CallToolRequest{}
-	input := Input{Host: "localhost", Port: 80}
+	input := tools.ScannerInput{Host: "localhost", Port: 80}
 
-	// Handler should still return results even if scanner fails
+	// Handler should still return results even if scanner fails.
 	result, _, err := tool.FullScanHandler(ctx, req, input)
 	s.NoError(err)
 	s.NotNil(result)

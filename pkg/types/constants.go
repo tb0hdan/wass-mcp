@@ -1,6 +1,13 @@
 package types
 
 const (
-	MaxDefaultLines = 200    // Default maximum lines to return for top view
-	MaxAllowedLines = 100000 // Maximum allowed lines limit for pagination
+	// DefaultHost is the default target host for scanner tools.
+	DefaultHost = "localhost"
+	// DefaultPort is the default target port for scanner tools.
+	DefaultPort = 80
+
+	// MaxDefaultLines is the default maximum lines to return for top view.
+	MaxDefaultLines = 200
+	// MaxAllowedLines is the maximum allowed lines limit for pagination.
+	MaxAllowedLines = 100000
 )

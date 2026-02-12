@@ -3,8 +3,6 @@ package fullscan
 import (
 	"context"
 	"fmt"
-	"net"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -20,32 +18,21 @@ import (
 const (
 	reportLineWidth = 78
 	toolName        = "full_scan"
-	defaultHost     = "localhost"
-	defaultPort     = 80
 )
-
-// Input defines the MCP tool input parameters.
-type Input struct {
-	Host     string `json:"host,omitempty" validate:"omitempty,hostname|ip"`
-	Port     int    `json:"port,omitempty" validate:"min=0,max=65535"`
-	Vhost    string `json:"vhost,omitempty"`
-	MaxLines int    `json:"max_lines,omitempty" validate:"min=0,max=100000"`
-	Offset   int    `json:"offset,omitempty" validate:"min=0"`
-}
 
 // scannerResult holds the result from a single scanner with timing.
 type scannerResult struct {
-	Name     string
-	Output   string
 	Duration time.Duration
 	Error    error
+	Name     string
+	Output   string
 }
 
 // Tool implements the full scan tool.
 type Tool struct {
 	logger    zerolog.Logger
-	validator *validator.Validate
 	scanners  []tools.Scanner
+	validator *validator.Validate
 }
 
 // Register registers the full_scan tool with the MCP server.
@@ -85,22 +72,22 @@ func (t *Tool) Register(srv *server.Server) error {
 }
 
 // FullScanHandler handles MCP tool requests.
-func (t *Tool) FullScanHandler(ctx context.Context, _ *mcp.CallToolRequest, input Input) (*mcp.CallToolResult, any, error) {
+func (t *Tool) FullScanHandler(ctx context.Context, _ *mcp.CallToolRequest, input tools.ScannerInput) (*mcp.CallToolResult, any, error) {
 	if err := t.validator.Struct(input); err != nil {
 		return nil, nil, fmt.Errorf("validation error: %w", err)
 	}
 
-	host := defaultHost
+	host := types.DefaultHost
 	if input.Host != "" {
 		host = input.Host
 	}
 
-	port := defaultPort
+	port := types.DefaultPort
 	if input.Port != 0 {
 		port = input.Port
 	}
 
-	targetURL := "http://" + net.JoinHostPort(host, strconv.Itoa(port))
+	targetURL := tools.BuildTargetURL(host, port)
 	t.logger.Info().Msgf("Starting full scan on %s with %d scanners", targetURL, len(t.scanners))
 
 	// Run all scanners in parallel.
@@ -113,7 +100,7 @@ func (t *Tool) FullScanHandler(ctx context.Context, _ *mcp.CallToolRequest, inpu
 	// Merge results into report.
 	mergedOutput := t.mergeResults(targetURL, results)
 
-	// Apply pagination.
+	// Apply pagination using the shared function.
 	resultText := t.applyPagination(mergedOutput, input.MaxLines, input.Offset)
 
 	return &mcp.CallToolResult{
@@ -185,8 +172,8 @@ func (t *Tool) mergeResults(targetURL string, results []scannerResult) string {
 	builder.WriteString(dashLine + "\n")
 
 	var totalDuration time.Duration
-	successCount := 0
 	failCount := 0
+	successCount := 0
 
 	for _, result := range results {
 		totalDuration += result.Duration
@@ -231,33 +218,15 @@ func (t *Tool) mergeResults(targetURL string, results []scannerResult) string {
 	return builder.String()
 }
 
-// applyPagination applies pagination to the output.
+// applyPagination applies pagination to the output using the shared pagination logic.
 func (t *Tool) applyPagination(output string, maxLines, offset int) string {
-	if maxLines == 0 {
-		maxLines = types.MaxDefaultLines
-	}
-
-	lines := strings.Split(output, "\n")
-	totalLines := len(lines)
-
-	truncated := false
-	if offset > 0 && offset < totalLines {
-		end := totalLines
-		if offset+maxLines < totalLines {
-			end = offset + maxLines
-			truncated = true
-		}
-		lines = lines[offset:end]
-	} else if totalLines > maxLines {
-		lines = lines[:maxLines]
-		truncated = true
-	}
-
-	paginatedOutput := strings.Join(lines, "\n")
+	pagination := tools.ApplyPagination(output, maxLines, offset)
+	paginatedOutput := strings.Join(pagination.Lines, "\n")
 
 	resultText := ""
-	if truncated || offset > 0 {
-		resultText = fmt.Sprintf("[Showing lines %d-%d of %d lines. Use offset parameter to view more.]\n\n", offset+1, offset+len(lines), totalLines)
+	if pagination.Truncated || offset > 0 {
+		resultText = fmt.Sprintf("[Showing lines %d-%d of %d lines. Use offset parameter to view more.]\n\n",
+			pagination.StartLine+1, pagination.EndLine, pagination.TotalLines)
 	}
 	resultText += paginatedOutput
 
@@ -268,7 +237,7 @@ func (t *Tool) applyPagination(output string, maxLines, offset int) string {
 func New(logger zerolog.Logger, scanners ...tools.Scanner) tools.Tool {
 	return &Tool{
 		logger:    logger.With().Str("tool", toolName).Logger(),
-		validator: validator.New(),
 		scanners:  scanners,
+		validator: validator.New(),
 	}
 }
