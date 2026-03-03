@@ -5,6 +5,8 @@ const (
 	DefaultHost = "localhost"
 	// DefaultPort is the default target port for scanner tools.
 	DefaultPort = 80
+	// HTTPSPort is the standard HTTPS port.
+	HTTPSPort = 443
 
 	// MaxDefaultLines is the default maximum lines to return for top view.
 	MaxDefaultLines = 200

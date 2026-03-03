@@ -117,9 +117,14 @@ func FormatScannerOutput(toolName, headerVerb, targetURL, output string, maxLine
 	return resultText
 }
 
-// BuildTargetURL constructs an HTTP URL from host and port.
+// BuildTargetURL constructs a URL from host and port, using HTTPS for port 443.
 func BuildTargetURL(host string, port int) string {
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(port))
+	scheme := "http"
+	if port == types.HTTPSPort {
+		scheme = "https"
+	}
+
+	return scheme + "://" + net.JoinHostPort(host, strconv.Itoa(port))
 }
 
 // BaseScanner provides common functionality for scanner tools.
