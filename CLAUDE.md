@@ -15,3 +15,4 @@
 ## Important Files
 - docs/PROJECT_NOTES.md - Contains project overview, goals, and current implementation status
 - Makefile - Contains build, test, and lint commands
+- deployments/Dockerfile - contains containerized version

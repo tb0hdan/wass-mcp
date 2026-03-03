@@ -24,6 +24,7 @@ import (
 	"github.com/tb0hdan/wass-mcp/pkg/tools/history"
 	"github.com/tb0hdan/wass-mcp/pkg/tools/nikto"
 	"github.com/tb0hdan/wass-mcp/pkg/tools/nuclei"
+	"github.com/tb0hdan/wass-mcp/pkg/tools/shcheck"
 	"github.com/tb0hdan/wass-mcp/pkg/tools/wapiti"
 )
 
@@ -89,6 +90,7 @@ func main() {
 		nikto.New(logger),
 		wapiti.New(logger),
 		nuclei.New(logger),
+		shcheck.New(logger),
 	}
 
 	// Create tool instances.

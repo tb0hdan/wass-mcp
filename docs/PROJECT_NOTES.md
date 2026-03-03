@@ -42,6 +42,8 @@ wass-mcp/
 │   │   │   └── wapiti.go # Wapiti scanner tool
 │   │   ├── nuclei/
 │   │   │   └── nuclei.go # Nuclei scanner tool
+│   │   ├── shcheck/
+│   │   │   └── shcheck.go # Security headers checker tool
 │   │   ├── fullscan/
 │   │   │   └── fullscan.go # Parallel full scan tool
 │   │   └── history/
@@ -143,6 +145,29 @@ Template-based vulnerability scanner using Nuclei. Performs fast scanning using 
 - Detailed finding information
 - Affected URLs and parameters
 
+### shcheck
+
+Security headers checker using shcheck.py. Analyzes HTTP response headers for security best practices including Content-Security-Policy, Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options, and more.
+
+**Input:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `host` | string | Target hostname or IP |
+| `port` | int | Target port (default: 80) |
+| `vhost` | string | Virtual host header (optional) |
+| `max_lines` | int | Max output lines (pagination) |
+| `offset` | int | Line offset (pagination) |
+
+**Example:**
+```json
+{"host": "example.com", "port": 443}
+```
+
+**Output:** Returns JSON output including:
+- Present security headers with their values
+- Missing security headers that should be configured
+- Deprecated headers detected
+
 ### full_scan
 
 Comprehensive security scan using all available scanners in parallel. Merges results into a unified report.
@@ -164,7 +189,7 @@ Comprehensive security scan using all available scanners in parallel. Merges res
 **Output:** Unified report containing:
 - Scan summary with timing for each scanner
 - Success/failure status per scanner
-- Merged results from all scanners (nikto, wapiti, nuclei)
+- Merged results from all scanners (nikto, wapiti, nuclei, shcheck)
 
 **Features:**
 - Runs all available scanners in parallel
@@ -316,6 +341,7 @@ The project includes comprehensive test coverage for all packages:
 | `pkg/models` | Data models | JSON serialization, field validation |
 | `pkg/tools` | Tool wrapper | Execution logging, timing, error handling |
 | `pkg/tools/history` | History tool | All history actions (list, get, delete, clear) |
+| `pkg/tools/shcheck` | shcheck tool | Security headers checker tests |
 | `pkg/types` | Constants | Value validation |
 
 ### Running Tests
@@ -383,3 +409,7 @@ BSD 3-Clause License - Copyright (c) 2026, Bohdan Turkynevych.
   - Added shared `ApplyPagination()` and `FormatScannerOutput()` functions
   - Added shared constants `DefaultHost` and `DefaultPort` in `pkg/types`
   - Reduced code duplication across nikto, wapiti, nuclei, and fullscan tools
+- **v1.4:** Added shcheck security headers checker tool:
+  - Analyzes HTTP security headers using shcheck.py with JSON output
+  - Supports vhost via custom Host header
+  - Included in full_scan parallel scanning

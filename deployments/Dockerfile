@@ -27,7 +27,9 @@ RUN sed -i 's/^Components: main$/Components: main contrib non-free/' /etc/apt/so
     && apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     nikto \
+    python3-pip \
     wapiti \
+    && pip3 install --no-cache-dir --break-system-packages shcheck \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
