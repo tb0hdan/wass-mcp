@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -22,9 +23,10 @@ type Tool interface {
 
 // ScanParams contains common parameters for scanner tools.
 type ScanParams struct {
-	Host  string
-	Port  int
-	Vhost string
+	Host   string
+	Port   int
+	Scheme string
+	Vhost  string
 }
 
 // ScanResult contains the result of a scan operation.
@@ -47,7 +49,7 @@ type Scanner interface {
 // ScannerInput defines common MCP tool input parameters for all scanners.
 // This eliminates duplicate Input struct definitions across scanner packages.
 type ScannerInput struct {
-	Host     string `json:"host,omitempty" validate:"omitempty,hostname|ip"`
+	Host     string `json:"host,omitempty" validate:"omitempty,hostname_rfc1123|ip"`
 	MaxLines int    `json:"max_lines,omitempty" validate:"min=0,max=100000"`
 	Offset   int    `json:"offset,omitempty" validate:"min=0"`
 	Port     int    `json:"port,omitempty" validate:"min=0,max=65535"`
@@ -117,14 +119,105 @@ func FormatScannerOutput(toolName, headerVerb, targetURL, output string, maxLine
 	return resultText
 }
 
-// BuildTargetURL constructs a URL from host and port, using HTTPS for port 443.
-func BuildTargetURL(host string, port int) string {
-	scheme := "http"
-	if port == types.HTTPSPort {
-		scheme = "https"
+// HostParseResult contains the result of parsing a host input string.
+type HostParseResult struct {
+	Host   string
+	Port   int
+	Scheme string
+}
+
+// ParseHostInput detects URL-style host strings and extracts scheme, hostname, and port.
+// Plain hostnames or IPs are returned as-is with an empty scheme.
+func ParseHostInput(host string) HostParseResult {
+	if !strings.Contains(host, "://") {
+		return HostParseResult{Host: host}
 	}
 
-	return scheme + "://" + net.JoinHostPort(host, strconv.Itoa(port))
+	parsed, err := url.Parse(host)
+	if err != nil {
+		return HostParseResult{Host: host}
+	}
+
+	result := HostParseResult{
+		Host:   parsed.Hostname(),
+		Scheme: parsed.Scheme,
+	}
+
+	if portStr := parsed.Port(); portStr != "" {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			result.Port = p
+		}
+	}
+
+	return result
+}
+
+// BuildTargetURL constructs a URL from ScanParams, omitting the port when it is
+// the default for the scheme (80 for HTTP, 443 for HTTPS).
+func BuildTargetURL(params ScanParams) string {
+	scheme := params.Scheme
+	if scheme == "" {
+		scheme = types.SchemeHTTP
+	}
+
+	host := params.Host
+
+	// Omit port when it matches the scheme default.
+	if (scheme == types.SchemeHTTP && params.Port == types.DefaultPort) ||
+		(scheme == types.SchemeHTTPS && params.Port == types.HTTPSPort) {
+		// For IPv6 without port, we still need brackets.
+		if strings.Contains(host, ":") {
+			host = "[" + host + "]"
+		}
+
+		return scheme + "://" + host
+	}
+
+	return scheme + "://" + net.JoinHostPort(host, strconv.Itoa(params.Port))
+}
+
+// ResolveParams resolves a ScannerInput into a ScanParams with defaults applied.
+// This is a standalone function for use by tools that don't embed BaseScanner (e.g. fullscan).
+func ResolveParams(input ScannerInput) ScanParams {
+	parsed := ParseHostInput(input.Host)
+
+	host := parsed.Host
+	if host == "" {
+		host = types.DefaultHost
+	}
+
+	port := input.Port
+	if port == 0 {
+		port = parsed.Port
+	}
+
+	scheme := parsed.Scheme
+
+	// Infer scheme from port if not set by URL.
+	if scheme == "" {
+		if port == types.HTTPSPort {
+			scheme = types.SchemeHTTPS
+		} else {
+			scheme = types.SchemeHTTP
+		}
+	}
+
+	// When scheme is HTTPS from URL but no port was set anywhere, default to 443.
+	if scheme == types.SchemeHTTPS && port == 0 {
+		port = types.HTTPSPort
+	}
+
+	// Fallback to default port.
+	if port == 0 {
+		port = types.DefaultPort
+	}
+
+	return ScanParams{
+		Host:   host,
+		Port:   port,
+		Scheme: scheme,
+		Vhost:  input.Vhost,
+	}
 }
 
 // BaseScanner provides common functionality for scanner tools.
@@ -165,15 +258,23 @@ func (b *BaseScanner) ValidateInput(input any) error {
 	return nil
 }
 
-// ResolveHostPort returns host and port with defaults applied if needed.
-func (b *BaseScanner) ResolveHostPort(host string, port int) (string, int) {
-	if host == "" {
-		host = types.DefaultHost
+// PrepareInput parses URL-style hosts in the input and replaces the Host field
+// with the plain hostname so that validation (hostname|ip) passes.
+// It also copies a URL-embedded port to input.Port when port was not explicitly set.
+func (b *BaseScanner) PrepareInput(input ScannerInput) ScannerInput {
+	parsed := ParseHostInput(input.Host)
+	input.Host = parsed.Host
+
+	if input.Port == 0 && parsed.Port != 0 {
+		input.Port = parsed.Port
 	}
-	if port == 0 {
-		port = types.DefaultPort
-	}
-	return host, port
+
+	return input
+}
+
+// ResolveInput resolves a ScannerInput into a ScanParams with defaults applied.
+func (b *BaseScanner) ResolveInput(input ScannerInput) ScanParams {
+	return ResolveParams(input)
 }
 
 // RegisterTool is a helper to register a scanner tool with the MCP server.

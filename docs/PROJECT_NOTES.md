@@ -267,8 +267,9 @@ type BaseScanner struct {
 The `BaseScanner` provides:
 - `Name()` - Returns the scanner binary name
 - `IsAvailable()` - Checks if binary exists in PATH
+- `PrepareInput()` - Parses URL-style hosts and extracts scheme/hostname/port before validation
 - `ValidateInput()` - Validates input using go-playground/validator
-- `ResolveHostPort()` - Applies default host/port values
+- `ResolveInput()` - Resolves input to `ScanParams` with scheme, defaults, and port inference
 - `RegisterTool()` - Handles common registration logic
 
 ### Shared Types
@@ -286,9 +287,10 @@ type ScannerInput struct {
 
 // ScanParams - Parameters passed to Scan method
 type ScanParams struct {
-    Host  string
-    Port  int
-    Vhost string
+    Host   string
+    Port   int
+    Scheme string
+    Vhost  string
 }
 
 // ScanResult - Result returned from Scan method
@@ -313,7 +315,9 @@ func Handler(ctx context.Context, req *mcp.CallToolRequest, input tools.ScannerI
 The `pkg/tools` package provides shared utility functions:
 - `ApplyPagination()` - Applies pagination to output strings
 - `FormatScannerOutput()` - Formats scanner output with pagination info
-- `BuildTargetURL()` - Constructs HTTP URL from host and port
+- `ParseHostInput()` - Extracts scheme, hostname, and port from URL-style inputs
+- `BuildTargetURL()` - Constructs URL from `ScanParams`, omitting default ports
+- `ResolveParams()` - Resolves `ScannerInput` into `ScanParams` with scheme inference
 
 ## Development Commands
 
@@ -413,3 +417,12 @@ BSD 3-Clause License - Copyright (c) 2026, Bohdan Turkynevych.
   - Analyzes HTTP security headers using shcheck.py with JSON output
   - Supports vhost via custom Host header
   - Included in full_scan parallel scanning
+- **v1.5:** Redesigned URL handling for scheme-aware scanning:
+  - Added `SchemeHTTP` and `SchemeHTTPS` constants
+  - Added `Scheme` field to `ScanParams` for carrying URL scheme through scanning pipeline
+  - Added `ParseHostInput()` to extract scheme, hostname, and port from URL-style host inputs (e.g. `https://example.com`)
+  - Added `PrepareInput()` on `BaseScanner` to strip URLs before validation
+  - Added `ResolveInput()` / `ResolveParams()` for scheme-aware input resolution
+  - Redesigned `BuildTargetURL()` to omit default ports (80 for HTTP, 443 for HTTPS)
+  - Nikto scanner now passes `-ssl` flag for HTTPS targets
+  - Fullscan uses shared `ResolveParams()` for consistent URL handling

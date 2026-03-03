@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/tb0hdan/wass-mcp/pkg/server"
 	"github.com/tb0hdan/wass-mcp/pkg/tools"
+	"github.com/tb0hdan/wass-mcp/pkg/types"
 )
 
 const (
@@ -24,12 +25,13 @@ type Tool struct {
 
 // Scan performs the nikto scan and returns the output.
 func (t *Tool) Scan(ctx context.Context, params tools.ScanParams) tools.ScanResult {
-	host, port := t.ResolveHostPort(params.Host, params.Port)
-
-	targetURL := tools.BuildTargetURL(host, port)
+	targetURL := tools.BuildTargetURL(params)
 	t.Logger.Info().Msgf("Running nikto scan on %s", targetURL)
 
-	args := []string{"-host", host, "-port", fmt.Sprint(port)}
+	args := []string{"-host", params.Host, "-port", fmt.Sprint(params.Port)}
+	if params.Scheme == types.SchemeHTTPS {
+		args = append(args, "-ssl")
+	}
 	if params.Vhost != "" {
 		args = append(args, "-vhost", params.Vhost)
 	}
@@ -57,24 +59,20 @@ func (t *Tool) Register(srv *server.Server) error {
 
 // Handler handles MCP tool requests.
 func (t *Tool) Handler(ctx context.Context, _ *mcp.CallToolRequest, input tools.ScannerInput) (*mcp.CallToolResult, any, error) {
+	input = t.PrepareInput(input)
+
 	if err := t.ValidateInput(input); err != nil {
 		return nil, nil, err
 	}
 
-	host, port := t.ResolveHostPort(input.Host, input.Port)
-
-	params := tools.ScanParams{
-		Host:  host,
-		Port:  port,
-		Vhost: input.Vhost,
-	}
+	params := t.ResolveInput(input)
 
 	scanResult := t.Scan(ctx, params)
 	if scanResult.Error != nil {
 		return nil, nil, fmt.Errorf("%w\nOutput: %s", scanResult.Error, scanResult.Output)
 	}
 
-	targetURL := tools.BuildTargetURL(host, port)
+	targetURL := tools.BuildTargetURL(params)
 	resultText := tools.FormatScannerOutput(binaryName, headerVerb, targetURL, scanResult.Output, input.MaxLines, input.Offset)
 
 	return &mcp.CallToolResult{

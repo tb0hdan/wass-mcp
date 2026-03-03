@@ -12,7 +12,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/tb0hdan/wass-mcp/pkg/server"
 	"github.com/tb0hdan/wass-mcp/pkg/tools"
-	"github.com/tb0hdan/wass-mcp/pkg/types"
 )
 
 const (
@@ -73,29 +72,24 @@ func (t *Tool) Register(srv *server.Server) error {
 
 // FullScanHandler handles MCP tool requests.
 func (t *Tool) FullScanHandler(ctx context.Context, _ *mcp.CallToolRequest, input tools.ScannerInput) (*mcp.CallToolResult, any, error) {
+	// Parse URL-style hosts before validation.
+	parsed := tools.ParseHostInput(input.Host)
+	input.Host = parsed.Host
+
+	if input.Port == 0 && parsed.Port != 0 {
+		input.Port = parsed.Port
+	}
+
 	if err := t.validator.Struct(input); err != nil {
 		return nil, nil, fmt.Errorf("validation error: %w", err)
 	}
 
-	host := types.DefaultHost
-	if input.Host != "" {
-		host = input.Host
-	}
-
-	port := types.DefaultPort
-	if input.Port != 0 {
-		port = input.Port
-	}
-
-	targetURL := tools.BuildTargetURL(host, port)
+	params := tools.ResolveParams(input)
+	targetURL := tools.BuildTargetURL(params)
 	t.logger.Info().Msgf("Starting full scan on %s with %d scanners", targetURL, len(t.scanners))
 
 	// Run all scanners in parallel.
-	results := t.runScannersParallel(ctx, tools.ScanParams{
-		Host:  host,
-		Port:  port,
-		Vhost: input.Vhost,
-	})
+	results := t.runScannersParallel(ctx, params)
 
 	// Merge results into report.
 	mergedOutput := t.mergeResults(targetURL, results)

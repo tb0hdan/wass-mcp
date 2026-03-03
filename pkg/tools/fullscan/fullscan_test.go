@@ -90,9 +90,10 @@ func (s *FullScanTestSuite) TestRunScannersParallel_SingleScanner() {
 
 	ctx := context.Background()
 	params := tools.ScanParams{
-		Host:  "localhost",
-		Port:  80,
-		Vhost: "",
+		Host:   "localhost",
+		Port:   80,
+		Scheme: "http",
+		Vhost:  "",
 	}
 
 	results := tool.runScannersParallel(ctx, params)
@@ -121,9 +122,10 @@ func (s *FullScanTestSuite) TestRunScannersParallel_MultipleScanners() {
 
 	ctx := context.Background()
 	params := tools.ScanParams{
-		Host:  "example.com",
-		Port:  8080,
-		Vhost: "test.example.com",
+		Host:   "example.com",
+		Port:   8080,
+		Scheme: "http",
+		Vhost:  "test.example.com",
 	}
 
 	results := tool.runScannersParallel(ctx, params)
@@ -150,7 +152,7 @@ func (s *FullScanTestSuite) TestRunScannersParallel_WithError() {
 	tool.scanners = []tools.Scanner{scanner}
 
 	ctx := context.Background()
-	params := tools.ScanParams{Host: "localhost", Port: 80}
+	params := tools.ScanParams{Host: "localhost", Port: 80, Scheme: "http"}
 
 	results := tool.runScannersParallel(ctx, params)
 
@@ -180,7 +182,7 @@ func (s *FullScanTestSuite) TestRunScannersParallel_Concurrent() {
 	tool.scanners = []tools.Scanner{scanner1, scanner2}
 
 	ctx := context.Background()
-	params := tools.ScanParams{Host: "localhost", Port: 80}
+	params := tools.ScanParams{Host: "localhost", Port: 80, Scheme: "http"}
 
 	start := time.Now()
 	results := tool.runScannersParallel(ctx, params)
@@ -210,10 +212,10 @@ func (s *FullScanTestSuite) TestMergeResults_Success() {
 		},
 	}
 
-	merged := tool.mergeResults("http://localhost:80", results)
+	merged := tool.mergeResults("http://localhost", results)
 
 	s.Contains(merged, "FULL SECURITY SCAN REPORT")
-	s.Contains(merged, "Target: http://localhost:80")
+	s.Contains(merged, "Target: http://localhost")
 	s.Contains(merged, "scanner1")
 	s.Contains(merged, "scanner2")
 	s.Contains(merged, "findings from scanner1")
@@ -243,7 +245,7 @@ func (s *FullScanTestSuite) TestMergeResults_WithFailure() {
 		},
 	}
 
-	merged := tool.mergeResults("http://localhost:80", results)
+	merged := tool.mergeResults("http://localhost", results)
 
 	s.Contains(merged, "FULL SECURITY SCAN REPORT")
 	s.Contains(merged, "scanner1")
@@ -260,7 +262,7 @@ func (s *FullScanTestSuite) TestMergeResults_Empty() {
 
 	results := []scannerResult{}
 
-	merged := tool.mergeResults("http://localhost:80", results)
+	merged := tool.mergeResults("http://localhost", results)
 
 	s.Contains(merged, "FULL SECURITY SCAN REPORT")
 	s.Contains(merged, "Total scanners: 0")
@@ -545,6 +547,7 @@ func (s *FullScanTestSuite) TestFullScanHandler_DefaultsApplied() {
 	s.True(scanner.scanCalled)
 	s.Equal("localhost", scanner.scanParams.Host)
 	s.Equal(80, scanner.scanParams.Port)
+	s.Equal("http", scanner.scanParams.Scheme)
 }
 
 func (s *FullScanTestSuite) TestFullScanHandler_WithPagination() {

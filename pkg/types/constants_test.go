@@ -38,3 +38,18 @@ func TestMaxAllowedLines_Reasonable(t *testing.T) {
 		t.Error("MaxAllowedLines seems excessively large")
 	}
 }
+
+func TestSchemeConstants(t *testing.T) {
+	if SchemeHTTP != "http" {
+		t.Errorf("expected SchemeHTTP to be \"http\", got %q", SchemeHTTP)
+	}
+	if SchemeHTTPS != "https" {
+		t.Errorf("expected SchemeHTTPS to be \"https\", got %q", SchemeHTTPS)
+	}
+}
+
+func TestHTTPSPort(t *testing.T) {
+	if HTTPSPort != 443 {
+		t.Errorf("expected HTTPSPort to be 443, got %d", HTTPSPort)
+	}
+}

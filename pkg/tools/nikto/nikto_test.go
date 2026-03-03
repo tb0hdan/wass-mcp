@@ -48,9 +48,9 @@ func (s *NiktoTestSuite) TestIsAvailable() {
 
 func (s *NiktoTestSuite) TestFormatScannerOutput_NoTruncation() {
 	output := "line1\nline2\nline3"
-	result := tools.FormatScannerOutput("nikto", "output", "http://localhost:80", output, 0, 0)
+	result := tools.FormatScannerOutput("nikto", "output", "http://localhost", output, 0, 0)
 
-	s.Contains(result, "nikto output for http://localhost:80:")
+	s.Contains(result, "nikto output for http://localhost:")
 	s.Contains(result, "line1")
 	s.Contains(result, "line2")
 	s.Contains(result, "line3")
@@ -65,9 +65,9 @@ func (s *NiktoTestSuite) TestFormatScannerOutput_WithTruncation() {
 	}
 	output := strings.Join(lines, "\n")
 
-	result := tools.FormatScannerOutput("nikto", "output", "http://localhost:80", output, 10, 0)
+	result := tools.FormatScannerOutput("nikto", "output", "http://localhost", output, 10, 0)
 
-	s.Contains(result, "nikto output for http://localhost:80:")
+	s.Contains(result, "nikto output for http://localhost:")
 	s.Contains(result, "Showing lines 1-10 of 100 lines")
 }
 
@@ -78,23 +78,23 @@ func (s *NiktoTestSuite) TestFormatScannerOutput_WithOffset() {
 	}
 	output := strings.Join(lines, "\n")
 
-	result := tools.FormatScannerOutput("nikto", "output", "http://localhost:80", output, 10, 20)
+	result := tools.FormatScannerOutput("nikto", "output", "http://localhost", output, 10, 20)
 
 	s.Contains(result, "Showing lines 21-30 of 50 lines")
 }
 
 func (s *NiktoTestSuite) TestFormatScannerOutput_OffsetBeyondEnd() {
 	output := "line1\nline2\nline3"
-	result := tools.FormatScannerOutput("nikto", "output", "http://localhost:80", output, 10, 100)
+	result := tools.FormatScannerOutput("nikto", "output", "http://localhost", output, 10, 100)
 
 	// When offset is beyond totalLines, the original truncation logic applies.
-	s.Contains(result, "nikto output for http://localhost:80:")
+	s.Contains(result, "nikto output for http://localhost:")
 }
 
 func (s *NiktoTestSuite) TestFormatScannerOutput_ZeroMaxLines() {
 	// When maxLines is 0, it should use the default.
 	output := "line1\nline2\nline3"
-	result := tools.FormatScannerOutput("nikto", "output", "http://localhost:80", output, 0, 0)
+	result := tools.FormatScannerOutput("nikto", "output", "http://localhost", output, 0, 0)
 
 	s.Contains(result, "line1")
 	s.Contains(result, "line2")
