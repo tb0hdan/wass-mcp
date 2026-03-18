@@ -8,6 +8,7 @@ A Model Context Protocol (MCP) server for web application security scanning.
 - **Nikto Integration** - Web server vulnerability scanning
 - **Nuclei Integration** - Template-based vulnerability scanning
 - **Wapiti Integration** - Web application vulnerability scanning
+- **Shcheck Integration** - Security headers analysis
 - **Execution History** - Persistent storage of scan results
 - **Stateless Design** - Survives server restarts without session errors
 - **RESTful HTTP Transport** - Streamable HTTP-based MCP protocol
@@ -124,6 +125,38 @@ Perform comprehensive web application vulnerability scans using Wapiti.
 }
 ```
 
+### shcheck_py
+
+Analyze HTTP security headers using shcheck.py.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `host` | string | Yes | Target hostname or IP address |
+| `port` | integer | No | Target port (default: 80) |
+| `vhost` | string | No | Virtual host header |
+| `max_lines` | integer | No | Maximum output lines |
+| `offset` | integer | No | Output line offset |
+
+**Headers Analyzed:**
+- Content-Security-Policy
+- Strict-Transport-Security
+- X-Frame-Options
+- X-Content-Type-Options
+- Referrer-Policy
+- Permissions-Policy
+- And other security-relevant headers
+
+**Example:**
+
+```json
+{
+  "host": "example.com",
+  "port": 443
+}
+```
+
 ### full_scan
 
 Perform a comprehensive security scan using all available scanners in parallel.
@@ -139,7 +172,7 @@ Perform a comprehensive security scan using all available scanners in parallel.
 | `offset` | integer | No | Output line offset |
 
 **Features:**
-- Runs nikto, nuclei and wapiti scanners in parallel
+- Runs nikto, nuclei, wapiti and shcheck scanners in parallel
 - Merges results into a unified report
 - Includes timing and status for each scanner
 - Gracefully handles missing scanner binaries
@@ -189,6 +222,7 @@ Browse and manage tool execution history.
 - Nikto (`apt install nikto` or equivalent)
 - Nuclei (`go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest`)
 - Wapiti (`apt install wapiti` or equivalent)
+- Shcheck (`pip install shcheck` or from [GitHub](https://github.com/santoru/shcheck))
 - SQLite3
 - 
 ```bash
@@ -254,6 +288,7 @@ wass-mcp/
 │   │   ├── nikto/       # Nikto web server scanner
 │   │   ├── wapiti/      # Wapiti web app scanner
 │   │   ├── nuclei/      # Nuclei template scanner
+│   │   ├── shcheck/     # Security headers checker
 │   │   ├── fullscan/    # Parallel full scan
 │   │   └── history/     # History management
 │   └── types/           # Shared types and constants
@@ -287,4 +322,5 @@ BSD 3-Clause License - Copyright (c) 2026, Bohdan Turkynevych. See [LICENSE](LIC
 - [Nikto](https://cirt.net/Nikto2) - Web server scanner
 - [Nuclei](https://github.com/projectdiscovery/nuclei) - Template-based vulnerability scanner
 - [Wapiti](https://wapiti-scanner.github.io/) - Web application vulnerability scanner
+- [Shcheck](https://github.com/santoru/shcheck) - Security headers checker
 - [GORM](https://gorm.io/) - Go ORM library
